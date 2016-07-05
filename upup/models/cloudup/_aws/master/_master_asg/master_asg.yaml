@@ -21,10 +21,6 @@ autoscalingGroup/{{ $m.Name}}.masters.{{ ClusterName }}:
   launchConfiguration: launchConfiguration/{{ $m.Name }}.masters.{{ ClusterName }}
   tags:
     k8s.io/role/master: "1"
-    k8s.io/dns/internal: "api.internal.{{ ClusterName }}"
-{{ if not (HasTag "_master_lb") }}
-    k8s.io/dns/public: "api.{{ ClusterName }}"
-{{ end }}
 
 {{ if HasTag "_master_lb" }}
 # Attach ASG to ELB

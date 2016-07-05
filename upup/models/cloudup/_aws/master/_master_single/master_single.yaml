@@ -24,10 +24,6 @@ instance/master.{{ ClusterName }}:
   privateIpAddress: {{ $.MasterInternalIP }}
   tags:
     k8s.io/role/master: "1"
-    k8s.io/dns/internal: "api.internal.{{ ClusterName }}"
-{{ if not (HasTag "_master_lb") }}
-    k8s.io/dns/public: "api.{{ ClusterName }}"
-{{ end }}
   sshKey: sshKey/{{ ClusterName }}
   securityGroups:
     - securityGroup/master.{{ ClusterName }}

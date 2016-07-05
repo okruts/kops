@@ -1,8 +1,9 @@
-package: k8s.io/kube-deploy/upup
+package: k8s.io/kops
 import:
 - package: github.com/ghodss/yaml
 - package: github.com/golang/glog
 - package: golang.org/x/net
+  version: b400c2eff1badec7022a8c8f5bea058b6315eed7
   subpackages:
   - context
 - package: golang.org/x/oauth2
@@ -14,8 +15,11 @@ import:
   - googleapi
   - storage/v1
 - package: google.golang.org/grpc
+  version: a0ff1e78a98cd140c2d18a0210ab0a2a183a2b4c
 - package: github.com/aws/aws-sdk-go
+  version: ^1.2.1
 - package: google.golang.org/cloud
+  version: ef96b79660680a001725ce5dc5f5bcce24676409
   subpackages:
   - compute/metadata
 - package: golang.org/x/crypto
