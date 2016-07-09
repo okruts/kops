@@ -1,0 +1,12 @@
+[submodule "_vendor.modules/github.com/golang/glog"]
+	path = _vendor.modules/github.com/golang/glog
+	url = https://github.com/golang/glog
+[submodule "_vendor.modules/github.com/cloudfoundry-incubator/candiedyaml"]
+	path = _vendor.modules/github.com/cloudfoundry-incubator/candiedyaml
+	url = https://github.com/cloudfoundry-incubator/candiedyaml
+[submodule "_vendor.modules/github.com/ghodss/yaml"]
+	path = _vendor.modules/github.com/ghodss/yaml
+	url = https://github.com/ghodss/yaml
+[submodule "_vendor.modules/k8s.io/kubernetes"]
+	path = _vendor.modules/k8s.io/kubernetes
+	url = https://github.com/kubernetes/kubernetes
