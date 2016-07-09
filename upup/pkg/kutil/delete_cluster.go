@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
+	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/golang/glog"
 	"io"
 	"k8s.io/kops/upup/pkg/fi"
@@ -85,6 +86,8 @@ func (c *DeleteCluster) ListResources() (map[string]*ResourceTracker, error) {
 		// ASG
 		ListAutoScalingGroups,
 		ListAutoScalingLaunchConfigurations,
+		// Route 53
+		ListRoute53Records,
 	}
 	for _, fn := range listFunctions {
 		trackers, err := fn(cloud, c.ClusterName)
@@ -1238,6 +1241,109 @@ func DeleteElasticIP(cloud fi.Cloud, t *ResourceTracker) error {
 		return fmt.Errorf("error deleting elastic ip %q: %v", t.Name, err)
 	}
 	return nil
+}
+
+func deleteRoute53Record(cloud fi.Cloud, r *ResourceTracker, zone *route53.HostedZone, rrs *route53.ResourceRecordSet) error {
+	c := cloud.(*awsup.AWSCloud)
+
+	// TODO: We really need to collapse these together: create  'groupKey' and a 'groupDelete' function?
+
+	glog.V(2).Infof("Deleting route53 record %q", r.Name)
+
+	var changes []*route53.Change
+	changes = append(changes, &route53.Change{
+		Action:            aws.String("DELETE"),
+		ResourceRecordSet: rrs,
+	})
+	changeBatch := &route53.ChangeBatch{
+		Changes: changes,
+	}
+	request := &route53.ChangeResourceRecordSetsInput{
+		HostedZoneId: zone.Id,
+		ChangeBatch:  changeBatch,
+	}
+	_, err := c.Route53.ChangeResourceRecordSets(request)
+	if err != nil {
+		return fmt.Errorf("error deleting route53 record %q: %v", r.Name, err)
+	}
+	return nil
+}
+
+func ListRoute53Records(cloud fi.Cloud, clusterName string) ([]*ResourceTracker, error) {
+	c := cloud.(*awsup.AWSCloud)
+
+	// Normalize cluster name, with leading "."
+	clusterName = "." + strings.TrimSuffix(clusterName, ".")
+
+	// TODO: If we have the zone id in the cluster spec, use it!
+	var zones []*route53.HostedZone
+	{
+		glog.V(2).Infof("Querying for all route53 zones")
+
+		request := &route53.ListHostedZonesInput{}
+		err := c.Route53.ListHostedZonesPages(request, func(p *route53.ListHostedZonesOutput, lastPage bool) bool {
+			for _, zone := range p.HostedZones {
+				zoneName := aws.StringValue(zone.Name)
+				zoneName = "." + strings.TrimSuffix(zoneName, ".")
+
+				if strings.HasSuffix(clusterName, zoneName) {
+					zones = append(zones, zone)
+				}
+			}
+			return true
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error querying for route53 zones: %v", err)
+		}
+	}
+
+	var trackers []*ResourceTracker
+
+	for _, zone := range zones {
+		glog.V(2).Infof("Querying for records in zone: %q", aws.StringValue(zone.Name))
+		request := &route53.ListResourceRecordSetsInput{
+			HostedZoneId: zone.Id,
+		}
+		err := c.Route53.ListResourceRecordSetsPages(request, func(p *route53.ListResourceRecordSetsOutput, lastPage bool) bool {
+			for _, rrs := range p.ResourceRecordSets {
+				name := aws.StringValue(rrs.Name)
+				name = "." + strings.TrimSuffix(name, ".")
+
+				if !strings.HasSuffix(name, clusterName) {
+					continue
+				}
+				prefix := strings.TrimSuffix(name, clusterName)
+
+				remove := false
+				// TODO: Compute the actual set of names?
+				if prefix == ".api" || prefix == ".api.internal" {
+					remove = true
+				} else if strings.HasPrefix(prefix, ".etc-") {
+					remove = true
+				}
+
+				if !remove {
+					continue
+				}
+
+				tracker := &ResourceTracker{
+					Name: aws.StringValue(rrs.Name),
+					ID:   aws.StringValue(rrs.Name),
+					Type: "route53-record",
+					deleter: func(cloud fi.Cloud, r *ResourceTracker) error {
+						return deleteRoute53Record(cloud, r, zone, rrs)
+					},
+				}
+				trackers = append(trackers, tracker)
+			}
+			return true
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error querying for route53 records for zone %q: %v", aws.StringValue(zone.Name), err)
+		}
+	}
+
+	return trackers, nil
 }
 
 func FindName(tags []*ec2.Tag) string {
