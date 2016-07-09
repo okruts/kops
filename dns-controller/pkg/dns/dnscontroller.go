@@ -325,7 +325,9 @@ func (o *dnsOp) deleteRecords(k recordKey) error {
 		return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
 	}
 
-	var errors []error
+	cs := rrsProvider.StartChangeset()
+
+	empty := true
 	for _, rr := range rrs {
 		rrName := EnsureDotSuffix(rr.Name())
 		if rrName != k.FQDN {
@@ -338,16 +340,18 @@ func (o *dnsOp) deleteRecords(k recordKey) error {
 		}
 
 		glog.V(2).Infof("Deleting resource record %s %s", rrName, rr.Type())
-		err := rrsProvider.Remove(rr)
-		if err != nil {
-			glog.Infof("error deleting resource record %s %s: %v", rrName, rr.Type(), err)
-			errors = append(errors, err)
-		}
+		cs.Remove(rr)
+		empty = false
 	}
 
-	if len(errors) != 0 {
-		return errors[0]
+	if empty {
+		return nil
 	}
+
+	if err := cs.Apply(); err != nil {
+		return fmt.Errorf("error deleting DNS resource records: %v", err)
+	}
+
 	return nil
 }
 
@@ -365,35 +369,41 @@ func (o *dnsOp) updateRecords(k recordKey, newRecords []string, ttl int64) error
 		return fmt.Errorf("zone does not support resource records %q", zone.Name())
 	}
 
-	//rrs, err := rrsProvider.List()
-	//if err != nil {
-	//	return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
-	//}
 
-	//rrMap := make(map[string]dnsprovider.ResourceRecordSet)
-	//for _, rr := range rrs {
-	//	if rr.Name() != k.FQDN {
-	//		glog.V(8).Infof("Skipping delete of record %q (name != %s)", rr.Name(), k.FQDN)
-	//		continue
-	//	}
-	//	if rr.Type() != k.RecordType {
-	//		glog.V(8).Infof("Skipping delete of record %q (type %s != %s)", rr.Name(), rr.Type(), k.RecordType)
-	//		continue
-	//	}
-	//
-	//	for _, v := range rr.Rrdatas() {
-	//		rrMap[v] = rr
-	//	}
-	//}
-
-	// TODO: Unclear if we need to compute a diff here
-
-	glog.V(2).Infof("Creating resource record %s %s", k, newRecords)
-	rr := rrsProvider.New(k.FQDN, newRecords, ttl, rrstype.RrsType(k.RecordType))
-
-	_, err := rrsProvider.Add(rr)
+	rrs, err := rrsProvider.List()
 	if err != nil {
-		return fmt.Errorf("error creating resource record %s %s: %v", k.FQDN, rr.Type(), err)
+		return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
+	}
+
+	var existing dnsprovider.ResourceRecordSet
+	for _, rr := range rrs {
+		if rr.Name() != k.FQDN {
+			glog.V(8).Infof("Skipping record %q (name != %s)", rr.Name(), k.FQDN)
+			continue
+		}
+		if string(rr.Type()) != string(k.RecordType) {
+			glog.V(8).Infof("Skipping record %q (type %s != %s)", rr.Name(), rr.Type(), k.RecordType)
+			continue
+		}
+
+		if existing != nil {
+			glog.Warningf("Found multiple matching records: %v and %v", existing, rr)
+		}
+		existing = rr
+	}
+
+	cs := rrsProvider.StartChangeset()
+
+	if existing != nil {
+		cs.Remove(existing)
+	}
+
+	glog.V(2).Infof("Updating resource record %s %s", k, newRecords)
+	rr := cs.New(k.FQDN, newRecords, ttl, rrstype.RrsType(k.RecordType))
+	cs.Add(rr)
+
+	if err := cs.Apply(); err != nil {
+		return fmt.Errorf("error updating resource record %s %s: %v", k.FQDN, rr.Type(), err)
 	}
 
 	return nil
