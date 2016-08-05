@@ -50,7 +50,7 @@ func init() {
 		},
 	}
 
-	createCmd.AddCommand(cmd)
+	createCmd.cobraCommand.AddCommand(cmd)
 
 	cmd.Flags().BoolVar(&createCluster.Yes, "yes", false, "Specify --yes to immediately create the cluster")
 	cmd.Flags().StringVar(&createCluster.Target, "target", cloudup.TargetDirect, "Target - direct, terraform")

@@ -19,5 +19,5 @@ var createSecretCmd = CreateSecretCommand{
 func init() {
 	cmd := createSecretCmd.cobraCommand
 
-	createCmd.AddCommand(cmd)
+	createCmd.cobraCommand.AddCommand(cmd)
 }

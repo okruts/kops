@@ -19,6 +19,10 @@ type InstanceGroup struct {
 type InstanceGroupRole string
 
 const (
+	KindInstanceGroup string = "InstanceGroup"
+)
+
+const (
 	InstanceGroupRoleMaster InstanceGroupRole = "Master"
 	InstanceGroupRoleNode   InstanceGroupRole = "Node"
 )

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"bytes"
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/kops/upup/pkg/api"
 	"k8s.io/kops/upup/pkg/fi/cloudup"
@@ -25,23 +24,26 @@ func init() {
 		Short:   "Create instancegroup",
 		Long:    `Create an instancegroup configuration.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) == 0 {
-				glog.Exitf("Specify name of instance group to create")
-			}
-			if len(args) != 1 {
-				glog.Exitf("Can only create one instance group at a time!")
-			}
-			err := createInstanceGroupCmd.Run(args[0])
+			err := createInstanceGroupCmd.Run(args)
 			if err != nil {
-				glog.Exitf("%v", err)
+				exitWithError(err)
 			}
 		},
 	}
 
-	createCmd.AddCommand(cmd)
+	createCmd.cobraCommand.AddCommand(cmd)
 }
 
-func (c *CreateInstanceGroupCmd) Run(groupName string) error {
+func (c *CreateInstanceGroupCmd) Run(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("Specify name of instance group to create")
+	}
+	if len(args) != 1 {
+		return fmt.Errorf("Can only create one instance group at a time!")
+	}
+
+	groupName := args[0]
+
 	_, cluster, err := rootCommand.Cluster()
 
 	instanceGroupStore, err := rootCommand.InstanceGroupRegistry()
@@ -61,6 +63,7 @@ func (c *CreateInstanceGroupCmd) Run(groupName string) error {
 	// Populate some defaults
 	ig := &api.InstanceGroup{}
 	ig.Name = groupName
+	ig.Kind = api.KindInstanceGroup
 	ig.Spec.Role = api.InstanceGroupRoleNode
 
 	ig, err = cloudup.PopulateInstanceGroupSpec(cluster, ig)

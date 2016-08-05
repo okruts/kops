@@ -194,6 +194,9 @@ func (r *InstanceGroupRegistry) Find(name string) (*InstanceGroup, error) {
 		}
 		return nil, fmt.Errorf("error reading instancegroup configuration %q: %v", name, err)
 	}
+	if group.Kind == "" {
+		group.Kind = KindInstanceGroup
+	}
 	return group, nil
 }
 
@@ -235,6 +238,11 @@ func (r *InstanceGroupRegistry) ReadAll() ([]*InstanceGroup, error) {
 func (r *InstanceGroupRegistry) Create(g *InstanceGroup) error {
 	if g.Name == "" {
 		return fmt.Errorf("Name is required")
+	}
+
+	// TODO: Same logic for clusters
+	if g.Kind == "" {
+		g.Kind = KindInstanceGroup
 	}
 
 	if g.CreationTimestamp.IsZero() {
