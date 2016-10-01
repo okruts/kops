@@ -1,9 +1,1 @@
-spec:
-  images:
-    - name: kope.io/k8s-1.4-debian-jessie-amd64-hvm-ebs-2016-09-30
-      labels:
-        k8s.io/cloudprovider: aws
-  cluster:
-    kubernetesVersion: v1.4.0
-    networking:
-      kubenet: {}
+stable/1.4.yaml
