@@ -34,11 +34,13 @@ ifdef STATIC_BUILD
   EXTRA_LDFLAGS=-s
 endif
 
-kops: gobindata
+kops: kops-gobindata
 	go install ${EXTRA_BUILDFLAGS} -ldflags "-X main.BuildVersion=${VERSION} ${EXTRA_LDFLAGS}" k8s.io/kops/cmd/kops/...
 
-gobindata:
+gobindata-tool:
 	go build ${EXTRA_BUILDFLAGS} -ldflags "${EXTRA_LDFLAGS}" -o ${GOPATH_1ST}/bin/go-bindata k8s.io/kops/vendor/github.com/jteeuwen/go-bindata/go-bindata
+
+kops-gobindata: gobindata-tool
 	cd ${GOPATH_1ST}/src/k8s.io/kops; ${GOPATH_1ST}/bin/go-bindata -o upup/models/bindata.go -pkg models -ignore="\\.DS_Store" -ignore=".*\\.go" -prefix upup/models/ upup/models/...
 
 # Build in a docker container with golang 1.X
@@ -52,7 +54,7 @@ check-builds-in-go16:
 check-builds-in-go17:
 	docker run -v ${GOPATH_1ST}/src/k8s.io/kops:/go/src/k8s.io/kops golang:1.7 make -f /go/src/k8s.io/kops/Makefile kops
 
-codegen: gobindata
+codegen: kops-gobindata
 	go install k8s.io/kops/upup/tools/generators/...
 	PATH=${GOPATH_1ST}/bin:${PATH} go generate k8s.io/kops/upup/pkg/fi/cloudup/awstasks
 	PATH=${GOPATH_1ST}/bin:${PATH} go generate k8s.io/kops/upup/pkg/fi/cloudup/gcetasks
@@ -136,7 +138,7 @@ protokube-push: protokube-image
 
 nodeup: nodeup-dist
 
-nodeup-gocode: gobindata
+nodeup-gocode: kops-gobindata
 	go install ${EXTRA_BUILDFLAGS} -ldflags "${EXTRA_LDFLAGS} -X main.BuildVersion=${VERSION}" k8s.io/kops/cmd/nodeup
 
 nodeup-dist:
@@ -201,3 +203,38 @@ channels-gocode:
 
 examples:
 	go install k8s.io/kops/examples/kops-api-example/...
+
+# --------------------------------------------------
+# federation tool
+
+
+federation-gocode: federation-gobindata
+	go install ${EXTRA_BUILDFLAGS} -ldflags "${EXTRA_LDFLAGS} -X main.BuildVersion=${VERSION}" k8s.io/kops/federation
+
+federation-gobindata: gobindata-tool
+	cd ${GOPATH_1ST}/src/k8s.io/kops; ${GOPATH_1ST}/bin/go-bindata -o federation/model/bindata.go -pkg model -ignore="\\.DS_Store" -ignore="bindata\\.go" -prefix federation/model/ federation/model/...
+
+
+#cmd/libs/go2idl/deepcopy-gen/main.go
+#
+#go build -o codecgen ./_vendor/github.com/ugorji/go/codec/codecgen
+#
+#go build -o deepcopy-gen ./_vendor/k8s.io/kubernetes/cmd/libs/go2idl/deepcopy-gen
+#go build -o conversion-gen ./_vendor/k8s.io/kubernetes/cmd/libs/go2idl/conversion-gen
+#
+#./conversion-gen --bounding-dirs k8s.io/kops --input-dirs k8s.io/kops/pkg/apis/kops --logtostderr --v=9
+#./deepcopy-gen --bounding-dirs k8s.io/kops --logtostderr --input-dirs k8s.io/kops/pkg/apis/kops
+#go build -o codecgen_binary ./_vendor/github.com/ugorji/go/codec/codecgen
+
+#./conversion-gen  --input-dirs k8s.io/kops/pkg/apis/kops/v1alpha1  --logtostderr --v=9 -O zz_generated.conversion
+#./deepcopy-gen  --input-dirs k8s.io/kops/pkg/apis/kops  --logtostderr --v=9 -O zz_generated.deepcopy
+#./deepcopy-gen  --input-dirs k8s.io/kops/pkg/apis/kops/v1alpha1  --logtostderr --v=9 -O zz_generated.deepcopy
+
+#BASE=`pwd`
+
+#cd ${BASE}/pkg/apis/kops/v1alpha1/; ${BASE}/codecgen_binary -x -d 1234 -o "types.generated.go" "federation.go" "instancegroup.go" "cluster.go" "componentconfig.go" "dockerconfig.go" "networking.go"
+
+#cd ${BASE}/pkg/apis/kops/
+#${BASE}/codecgen_binary -d 1234 -o "types.generated.go" "federation.go" "instancegroup.go" "cluster.go" "componentconfig.go" "dockerconfig.go" "networking.go"
+
+#cd ${BASE}

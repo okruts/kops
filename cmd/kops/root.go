@@ -8,7 +8,9 @@ import (
 	"github.com/spf13/viper"
 	"io"
 	"k8s.io/kops/cmd/kops/util"
+	api "k8s.io/kops/pkg/apis/kops"
 	kopsapi "k8s.io/kops/pkg/apis/kops"
+	"k8s.io/kops/pkg/apis/kops/v1alpha1"
 	"k8s.io/kops/pkg/client/simple"
 	"k8s.io/kops/upup/pkg/kutil"
 	k8sapi "k8s.io/kubernetes/pkg/api"
@@ -58,6 +60,9 @@ func Execute() {
 func initializeSchemas() error {
 	scheme := k8sapi.Scheme //runtime.NewScheme()
 	if err := kopsapi.AddToScheme(scheme); err != nil {
+		return err
+	}
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		return err
 	}
 	return nil

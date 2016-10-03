@@ -29,6 +29,27 @@ import (
 	clusteretcd "k8s.io/kubernetes/federation/registry/cluster/etcd"
 )
 
+
+type restOptionsFactory struct {
+	storageFactory          genericapiserver.StorageFactory
+	storageDecorator        generic.StorageDecorator
+	deleteCollectionWorkers int
+}
+
+func (f restOptionsFactory) NewFor(resource unversioned.GroupResource) generic.RESTOptions {
+	config, err := f.storageFactory.NewConfig(resource)
+	if err != nil {
+		glog.Fatalf("Unable to find storage config for %v, due to %v", resource, err.Error())
+	}
+	return generic.RESTOptions{
+		StorageConfig:           config,
+		Decorator:               f.storageDecorator,
+		DeleteCollectionWorkers: f.deleteCollectionWorkers,
+		ResourcePrefix:          f.storageFactory.ResourcePrefix(resource),
+	}
+}
+
+
 func installFederationAPIs(g *genericapiserver.GenericAPIServer, restOptionsFactory restOptionsFactory) {
 	clusterStorage, clusterStatusStorage := clusteretcd.NewREST(restOptionsFactory.NewFor(federation.Resource("clusters")))
 	federationResources := map[string]rest.Storage{

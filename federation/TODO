@@ -1,0 +1,26 @@
+Need to manually delegate example.com -> federation.example.com
+
+Fix this bug
+
+ederation.awsdata.com.
+Public
+5
+Z2WY3XCEH5ZERV
+federation.awsdata.com.
+Public
+2
+Z18OKUVJHNEV1F
+federation.awsdata.com.
+Public
+2
+Z3F30CT3DWV5F6
+federation.awsdata.com.
+Public
+2
+Z3RQHJGL4F1KHG
+
+I1010 06:43:54.722477       1 servicecontroller.go:267] DNS zone "federation.awsdata.com" not found.  Creating DNS zone "federation.awsdata.com".
+
+
+
+Prefix for keystore secreets?  secret- is silly; "ca" needs a prefix.  "keystore-"?

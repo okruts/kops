@@ -351,6 +351,10 @@ kube::golang::setup_env() {
   # cross-compiling, and `go install -o <file>` only works for a single pkg.
   local subdir
   subdir=$(kube::realpath . | sed "s|$KUBE_ROOT||")
+  echo "KUBE_GOPATH=${KUBE_GOPATH}"
+  echo "KUBE_GO_PACKAGE=${KUBE_GO_PACKAGE}"
+  echo "subdir=${subdir}"
+
   cd "${KUBE_GOPATH}/src/${KUBE_GO_PACKAGE}/${subdir}"
 
   # Set GOROOT so binaries that parse code can work properly.
