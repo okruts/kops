@@ -62,16 +62,21 @@ func buildCloudupTags(cluster *api.Cluster) (map[string]struct{}, error) {
 		tags["_isolate_masters"] = struct{}{}
 	}
 
-	switch cluster.Spec.CloudProvider {
-	case "gce":
+	switch fi.CloudProviderID(cluster.Spec.CloudProvider) {
+	case fi.CloudProviderGCE:
 		{
 			glog.Fatalf("GCE is (probably) not working currently - please ping @justinsb for cleanup")
 			tags["_gce"] = struct{}{}
 		}
 
-	case "aws":
+	case fi.CloudProviderAWS:
 		{
 			tags["_aws"] = struct{}{}
+		}
+
+	case fi.CloudProviderBareMetal:
+		{
+			tags["_baremetal"] = struct{}{}
 		}
 
 	default:

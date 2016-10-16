@@ -62,6 +62,8 @@ type InstanceGroupSpec struct {
 
 	Zones []string `json:"zones,omitempty"`
 
+	Machines []*MachineSpec `json:"machines,omitempty"`
+
 	// MaxPrice indicates this is a spot-pricing group, with the specified value as our max-price bid
 	MaxPrice *string `json:"maxPrice,omitempty"`
 
@@ -74,6 +76,16 @@ type InstanceGroupSpec struct {
 	// NodeLabels indicates the kubernetes labels for nodes in this group
 	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 }
+
+type MachineSpec struct {
+	Name string `json:"name,omitempty"`
+	Addresses []*MachineAddressSpec `json:"addresses,omitempty"`
+}
+
+type MachineAddressSpec struct {
+	Address string `json:"address,omitempty"`
+}
+
 
 // PerformAssignmentsInstanceGroups populates InstanceGroups with default values
 func PerformAssignmentsInstanceGroups(groups []*InstanceGroup) error {
@@ -133,7 +145,9 @@ func (g *InstanceGroup) Validate() error {
 	}
 
 	if g.IsMaster() {
-		if len(g.Spec.Zones) == 0 {
+		// TODO: Validate zones with AWS, machines with bare metal
+		// TODO: Switch to subnets?
+		if len(g.Spec.Zones) == 0 && len(g.Spec.Machines) == 0 {
 			return fmt.Errorf("Master InstanceGroup %s did not specify any Zones", g.Name)
 		}
 	}

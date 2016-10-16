@@ -116,7 +116,9 @@ func (c *populateClusterSpec) run() error {
 						return fmt.Errorf("EtcdMember #%d of etcd-cluster %s did not specify a Name", i, etcd.Name)
 					}
 
-					if fi.StringValue(m.Zone) == "" {
+					if fi.StringValue(m.Zone) != "" {
+					} else if fi.StringValue(m.InstanceGroup) != "" {
+					} else {
 						return fmt.Errorf("EtcdMember %s:%s did not specify a Zone", etcd.Name, m.Name)
 					}
 				}
@@ -130,16 +132,28 @@ func (c *populateClusterSpec) run() error {
 					}
 
 					zone := fi.StringValue(m.Zone)
+					instanceGroup := fi.StringValue(m.InstanceGroup)
+					if zone != "" {
+						if etcdZones[zone] != nil {
+							// Maybe this should just be a warning
+							return fmt.Errorf("EtcdMembers are in the same zone %q in etcd-cluster %q", zone, etcd.Name)
+						}
 
-					if etcdZones[zone] != nil {
-						// Maybe this should just be a warning
-						return fmt.Errorf("EtcdMembers are in the same zone %q in etcd-cluster %q", zone, etcd.Name)
-					}
+						if clusterZones[zone] == nil {
+							return fmt.Errorf("EtcdMembers for %q is configured in zone %q, but that is not configured at the k8s-cluster level", etcd.Name, zone)
+						}
+						etcdZones[zone] = m
+					} else if instanceGroup != "" {
+						if etcdZones[instanceGroup] != nil {
+							// Maybe this should just be a warning
+							return fmt.Errorf("EtcdMembers are in the same instanceGroup %q in etcd-cluster %q", instanceGroup, etcd.Name)
+						}
 
-					if clusterZones[zone] == nil {
-						return fmt.Errorf("EtcdMembers for %q is configured in zone %q, but that is not configured at the k8s-cluster level", etcd.Name, m.Zone)
+						//if clusterInstanceGroups[instanceGroup] == nil {
+						//	return fmt.Errorf("EtcdMembers for %q is configured in instanceGroup %q, but that is not configured at the k8s-cluster level", etcd.Name, instanceGroup)
+						//}
+						etcdZones[instanceGroup] = m
 					}
-					etcdZones[zone] = m
 				}
 
 				if (len(etcdZones) % 2) == 0 {

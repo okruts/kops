@@ -268,6 +268,9 @@ type EtcdMemberSpec struct {
 	Name string  `json:"name,omitempty"`
 	Zone *string `json:"zone,omitempty"`
 
+	// InstanceGroup is the name of the instance group to use to host this member
+	InstanceGroup *string `json:"instanceGroup,omitempty"`
+
 	VolumeType      *string `json:"volumeType,omitempty"`
 	VolumeSize      *int    `json:"volumeSize,omitempty"`
 	KmsKeyId        *string `json:"kmsKeyId,omitempty"`

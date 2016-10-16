@@ -77,7 +77,9 @@ func PopulateInstanceGroupSpec(cluster *api.Cluster, input *api.InstanceGroup, c
 	}
 
 	if ig.IsMaster() {
-		if len(ig.Spec.Zones) == 0 {
+		if len(ig.Spec.Zones) != 0 {
+		} else if len(ig.Spec.Machines) != 0 {
+		} else {
 			return nil, fmt.Errorf("Master InstanceGroup %s did not specify any Zones", ig.Name)
 		}
 	} else {
@@ -156,6 +158,11 @@ func defaultMasterMachineType(cluster *api.Cluster) string {
 
 // defaultImage returns the default Image, based on the cloudprovider
 func defaultImage(cluster *api.Cluster, channel *api.Channel) string {
+	switch fi.CloudProviderID(cluster.Spec.CloudProvider) {
+	case fi.CloudProviderBareMetal:
+		return ""
+	}
+
 	if channel != nil {
 		image := channel.FindImage(fi.CloudProviderID(cluster.Spec.CloudProvider))
 		if image != nil {

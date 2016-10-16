@@ -28,6 +28,7 @@ import (
 	"strings"
 	"os"
 	"github.com/golang/glog"
+	"k8s.io/kubernetes/pkg/api/errors"
 )
 
 type ClusterVFS struct {
@@ -87,6 +88,11 @@ func (r *ClusterVFS) Create(c *api.Cluster) (*api.Cluster, error) {
 
 	err = registry.WriteConfig(configPath, c, vfs.WriteOptionCreate)
 	if err != nil {
+		if os.IsExist(err) {
+			// TODO: What is the correct resource here?
+			resource := api.Resource("Cluster")
+			return nil, errors.NewAlreadyExists(resource, c.Name)
+		}
 		return nil, fmt.Errorf("error writing Cluster: %v", err)
 	}
 

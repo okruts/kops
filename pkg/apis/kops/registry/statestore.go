@@ -73,6 +73,9 @@ func WriteConfig(configPath vfs.Path, config interface{}, writeOptions ...vfs.Wr
 
 	if create {
 		err = configPath.CreateFile(data)
+		if err != nil && os.IsExist(err) {
+			return err
+		}
 	} else {
 		err = configPath.WriteFile(data)
 	}
