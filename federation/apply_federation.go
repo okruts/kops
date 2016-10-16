@@ -213,7 +213,12 @@ func (o*ApplyFederationOperation) buildApiserverKeypair() (*fitasks.Keypair) {
 }
 
 func (o*ApplyFederationOperation) runOnCluster(context *fi.Context, cluster *kopsapi.Cluster) error {
-	_, _, err := EnsureCASecret(context.Keystore)
+	err := o.EnsureNamespace(context)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = EnsureCASecret(context.Keystore)
 	if err != nil {
 		return err
 	}
@@ -221,11 +226,6 @@ func (o*ApplyFederationOperation) runOnCluster(context *fi.Context, cluster *kop
 	apiserverKeypair := o.buildApiserverKeypair()
 
 	err = apiserverKeypair.Run(context)
-	if err != nil {
-		return err
-	}
-
-	err = o.EnsureNamespace(context)
 	if err != nil {
 		return err
 	}
@@ -268,6 +268,9 @@ func (o*ApplyFederationOperation) buildTemplateData() map[string]string {
 	name := o.name
 
 	dnsZoneName := o.dnsZoneName
+	if !strings.HasSuffix(dnsZoneName, ".") {
+		dnsZoneName = dnsZoneName + "."
+	}
 
 	apiserverHostname := o.apiserverHostName
 

@@ -24,7 +24,7 @@ func init() {
 				exitWithError(fmt.Errorf("Specify name of instance group to delete"))
 			}
 			if len(args) != 1 {
-				exitWithError(fmt.Errorf("Can only edit one instance group at a time!"))
+				exitWithError(fmt.Errorf("Can only delete one instance group at a time!"))
 			}
 			err := deleteInstanceceGroupCmd.Run(args[0])
 			if err != nil {
