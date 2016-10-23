@@ -24,7 +24,10 @@ import (
 type Volumes interface {
 	AttachVolume(volume *Volume) error
 	FindVolumes() ([]*Volume, error)
+
+	ClusterID() string
 }
+
 
 type Volume struct {
 	// ID is the cloud-provider identifier for the volume
@@ -51,25 +54,14 @@ func (v *Volume) String() string {
 }
 
 type VolumeInfo struct {
-	Description string
-	MasterID    int
+	Description string `json:"description,omitempty"`
+	MasterID    int `json:"masterId,omitempty"`
 	// TODO: Maybe the events cluster can just be a PetSet - do we need it for boot?
-	EtcdClusters []*EtcdClusterSpec
+	EtcdClusters []*EtcdClusterSpec  `json:"etcdClusters,omitempty"`
 }
 
 func (v *VolumeInfo) String() string {
 	return DebugString(v)
-}
-
-type EtcdClusterSpec struct {
-	ClusterKey string
-
-	NodeName  string
-	NodeNames []string
-}
-
-func (e *EtcdClusterSpec) String() string {
-	return DebugString(e)
 }
 
 // Parses a tag on a volume that encodes an etcd cluster role

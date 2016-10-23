@@ -55,18 +55,20 @@ func (k *VolumeMountController) mountMasterVolumes() ([]*Volume, error) {
 
 		glog.V(2).Infof("Master volume %q is attached at %q", v.ID, v.LocalDevice)
 
-		mountpoint := "/mnt/master-" + v.ID
-		glog.Infof("Doing safe-format-and-mount of %s to %s", v.LocalDevice, mountpoint)
-		fstype := ""
-		err = k.safeFormatAndMount(v.LocalDevice, mountpoint, fstype)
-		if err != nil {
-			glog.Warningf("unable to mount master volume: %q", err)
-			continue
+		if v.Mountpoint == "" {
+			mountpoint := "/mnt/master-" + v.ID
+			glog.Infof("Doing safe-format-and-mount of %s to %s", v.LocalDevice, mountpoint)
+			fstype := ""
+			err = k.safeFormatAndMount(v.LocalDevice, mountpoint, fstype)
+			if err != nil {
+				glog.Warningf("unable to mount master volume: %q", err)
+				continue
+			}
+
+			glog.Infof("mounted master volume %q on %s", v.ID, mountpoint)
+
+			v.Mountpoint = mountpoint
 		}
-
-		glog.Infof("mounted master volume %q on %s", v.ID, mountpoint)
-
-		v.Mountpoint = mountpoint
 		k.mounted[v.ID] = v
 	}
 
