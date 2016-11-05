@@ -1,24 +1,23 @@
 package protokube
 
 import (
-	"fmt"
-	"os"
 	"bytes"
+	"fmt"
 	"github.com/golang/glog"
-	"time"
-	"strings"
 	"io/ioutil"
-	"path"
 	"k8s.io/kops/upup/pkg/fi/utils"
 	"k8s.io/kubernetes/pkg/api/resource"
+	"os"
+	"path"
+	"strings"
+	"time"
 )
-
 
 type EtcdClusterSpec struct {
 	ClusterKey string `json:"clusterKey,omitempty"`
 
-	NodeName   string `json:"nodeName,omitempty"`
-	NodeNames  []string `json:"nodeNames,omitempty"`
+	NodeName  string   `json:"nodeName,omitempty"`
+	NodeNames []string `json:"nodeNames,omitempty"`
 }
 
 func (e *EtcdClusterSpec) String() string {
@@ -42,7 +41,6 @@ type EtcdCluster struct {
 	VolumeMountPath string
 }
 
-
 func (e *EtcdCluster) String() string {
 	return DebugString(e)
 }
@@ -55,7 +53,6 @@ type EtcdNode struct {
 func (e *EtcdNode) String() string {
 	return DebugString(e)
 }
-
 
 type EtcdController struct {
 	kubeBoot *KubeBoot
@@ -78,7 +75,7 @@ func newEtcdController(kubeBoot *KubeBoot, v *Volume, spec *EtcdClusterSpec) (*E
 	cluster.DataDirName = "data-" + spec.ClusterKey
 	cluster.PodName = "etcd-server-" + spec.ClusterKey
 	cluster.CPURequest = resource.MustParse("100m")
-	cluster.ClientPort =  4001
+	cluster.ClientPort = 4001
 	cluster.PeerPort = 2380
 
 	// We used to build this through text files ... it turns out to just be more complicated than code!
@@ -90,7 +87,7 @@ func newEtcdController(kubeBoot *KubeBoot, v *Volume, spec *EtcdClusterSpec) (*E
 		cluster.CPURequest = resource.MustParse("200m")
 
 	case "events":
-		cluster.ClientPort =  4002
+		cluster.ClientPort = 4002
 		cluster.PeerPort = 2381
 
 	}
@@ -167,7 +164,7 @@ func (c *EtcdCluster) configure(k *KubeBoot) error {
 	pod := BuildEtcdManifest(c)
 	manifest, err := utils.YamlMarshal(pod)
 	if err != nil {
-		return  fmt.Errorf("error marshalling pod to yaml: %v", err)
+		return fmt.Errorf("error marshalling pod to yaml: %v", err)
 	}
 
 	// Time to write the manifest!
@@ -268,4 +265,3 @@ func touchFile(p string) error {
 	}
 	return nil
 }
-

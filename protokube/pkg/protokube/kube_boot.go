@@ -19,6 +19,7 @@ package protokube
 import (
 	"github.com/golang/glog"
 	"net"
+	"os"
 	"time"
 )
 
@@ -26,6 +27,10 @@ type KubeBoot struct {
 	Master            bool
 	InternalDNSSuffix string
 	InternalIP        net.IP
+
+	// PopulateExternalIP controls whether we set the external IP on this node
+	PopulateExternalIP bool
+
 	//MasterID          int
 	//EtcdClusters      []*EtcdClusterSpec
 
@@ -111,6 +116,19 @@ func (k *KubeBoot) syncOnce() error {
 		err := ApplyMasterTaints(k.Kubernetes)
 		if err != nil {
 			glog.Warningf("error updating master taints: %v", err)
+		}
+	}
+
+	if k.PopulateExternalIP {
+		nodeName := os.Getenv("K8S_NODE_NAME")
+		//machineIDBytes, err := ioutil.ReadFile(PathFor("/etc/machine-id"))
+		if nodeName == "" {
+			glog.Warningf("K8S_NODE_NAME not set; cannot populate external IP")
+		} else {
+			err := PopulateExternalIP(k.Kubernetes, nodeName)
+			if err != nil {
+				glog.Warningf("error populating external IP: %v", err)
+			}
 		}
 	}
 

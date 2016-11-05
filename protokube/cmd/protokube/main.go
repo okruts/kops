@@ -20,14 +20,17 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"k8s.io/kops/protokube/pkg/protokube"
+	"k8s.io/kops/protokube/pkg/protokube/baremetal"
 	"os"
 	"strings"
-	"k8s.io/kops/protokube/pkg/protokube/baremetal"
 )
 
 func main() {
 	master := false
 	flag.BoolVar(&master, "master", master, "Act as master")
+
+	populateExternalIP := false
+	flag.BoolVar(&populateExternalIP, "populate-external-ip", populateExternalIP, "If set, will populate the external IP when starting up")
 
 	cloud := ""
 	flag.StringVar(&cloud, "cloud", cloud, "Cloud provider to use - gce, aws, baremetal")
@@ -53,7 +56,7 @@ func main() {
 	var volumes protokube.Volumes
 	var err error
 
-	switch (cloud) {
+	switch cloud {
 	case "aws":
 		volumes, err = protokube.NewAWSVolumes()
 		if err != nil {
@@ -138,6 +141,8 @@ func main() {
 		InternalIP:        internalIP,
 		//MasterID          : fromVolume
 		//EtcdClusters   : fromVolume
+
+		PopulateExternalIP: populateExternalIP,
 
 		ModelDir: modelDir,
 		DNS:      dns,
