@@ -32,6 +32,8 @@ import (
 	"k8s.io/kubernetes/federation/pkg/dnsprovider/rrstype"
 )
 
+var zoneListCacheValidity = time.Minute * 15
+
 const DefaultTTL = time.Minute
 
 // DNSController applies the desired DNS state to the DNS backend
@@ -40,8 +42,7 @@ type DNSController struct {
 
 	util.Stoppable
 
-	// zones is the DNS provider
-	zones dnsprovider.Zones
+	dnsCache *dnsCache
 
 	// mutex protects the following mutable state
 	mutex sync.Mutex
@@ -79,21 +80,16 @@ type DNSControllerScope struct {
 var _ Scope = &DNSControllerScope{}
 
 // NewDnsController creates a DnsController
-func NewDNSController(provider dnsprovider.Interface, zoneRules *ZoneRules) (*DNSController, error) {
-	if provider == nil {
-		return nil, fmt.Errorf("must pass provider")
+func NewDNSController(dnsCache *dnsCache, zoneRules *ZoneRules) (*DNSController, error) {
+	if dnsCache == nil {
+		return nil, fmt.Errorf("must pass DNS provider")
 	}
 
 	c := &DNSController{
 		scopes:    make(map[string]*DNSControllerScope),
 		zoneRules: zoneRules,
+		dnsCache:  dnsCache,
 	}
-
-	zones, ok := provider.Zones()
-	if !ok {
-		return nil, fmt.Errorf("DNS provider does not support zones")
-	}
-	c.zones = zones
 
 	return c, nil
 }
@@ -234,7 +230,7 @@ func (c *DNSController) runOnce() error {
 		oldValueMap = c.lastSuccessfulSnapshot.recordValues
 	}
 
-	op, err := newDNSOp(c.zoneRules, c.zones)
+	op, err := newDNSOp(c.zoneRules, c.dnsCache)
 	if err != nil {
 		return err
 	}
@@ -294,16 +290,12 @@ func (c *DNSController) runOnce() error {
 }
 
 type dnsOp struct {
-	zonesProvider dnsprovider.Zones
-	zones         map[string]dnsprovider.Zone
+	dnsCache *dnsCache
+	zones    map[string]dnsprovider.Zone
 }
 
-func newDNSOp(zoneRules *ZoneRules, zonesProvider dnsprovider.Zones) (*dnsOp, error) {
-	o := &dnsOp{
-		zonesProvider: zonesProvider,
-	}
-
-	zones, err := zonesProvider.List()
+func newDNSOp(zoneRules *ZoneRules, dnsCache *dnsCache) (*dnsOp, error) {
+	zones, err := dnsCache.ListZones(zoneListCacheValidity)
 	if err != nil {
 		return nil, fmt.Errorf("error querying for zones: %v", err)
 	}
@@ -336,7 +328,11 @@ func newDNSOp(zoneRules *ZoneRules, zonesProvider dnsprovider.Zones) (*dnsOp, er
 			glog.Warningf("Found multiple zones for name %q, won't manage zone (To fix: provide zone mapping flag with ID of zone)", name)
 		}
 	}
-	o.zones = zoneMap
+
+	o := &dnsOp{
+		dnsCache: dnsCache,
+		zones:    zoneMap,
+	}
 
 	return o, nil
 }
@@ -379,6 +375,7 @@ func (o *dnsOp) deleteRecords(k recordKey) error {
 		return fmt.Errorf("zone does not support resource records %q", zone.Name())
 	}
 
+	glog.V(2).Infof("Querying all route53 records for zone %q", zone.Name())
 	rrs, err := rrsProvider.List()
 	if err != nil {
 		return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
@@ -430,6 +427,7 @@ func (o *dnsOp) updateRecords(k recordKey, newRecords []string, ttl int64) error
 		return fmt.Errorf("zone does not support resource records %q", zone.Name())
 	}
 
+	glog.V(2).Infof("Querying all route53 records for zone %q", zone.Name())
 	rrs, err := rrsProvider.List()
 	if err != nil {
 		return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
