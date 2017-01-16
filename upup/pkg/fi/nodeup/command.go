@@ -291,22 +291,45 @@ func evaluateHostnameOverride(hostnameOverride string) (string, error) {
 	k := strings.TrimSpace(hostnameOverride)
 	k = strings.ToLower(k)
 
-	if k != "@aws" {
+	if !strings.HasPrefix(k, "@aws") {
 		return hostnameOverride, nil
 	}
 
-	// We recognize @aws as meaning "the local-hostname from the aws metadata service"
-	vBytes, err := vfs.Context.ReadFile("metadata://aws/meta-data/local-hostname")
-	if err != nil {
-		return "", fmt.Errorf("error reading local hostname from AWS metadata: %v", err)
+	switch k {
+	case "@aws", "@aws.local-hostname":
+		{
+			// We recognize @aws as meaning "the local-hostname from the aws metadata service"
+			vBytes, err := vfs.Context.ReadFile("metadata://aws/meta-data/local-hostname")
+			if err != nil {
+				return "", fmt.Errorf("error reading local-hostname from AWS metadata: %v", err)
+			}
+			v := strings.TrimSpace(string(vBytes))
+			if v == "" {
+				return "", fmt.Errorf("local-hostname from AWS metadata service was empty")
+			} else {
+				glog.Infof("Using local-hostname from AWS metadata service as Node.Name: %s", v)
+			}
+			return v, nil
+		}
+
+	case "@aws.instance-id":
+		{
+			vBytes, err := vfs.Context.ReadFile("metadata://aws/meta-data/instance-id")
+			if err != nil {
+				return "", fmt.Errorf("error reading instance-id from AWS metadata: %v", err)
+			}
+			v := strings.TrimSpace(string(vBytes))
+			if v == "" {
+				return "", fmt.Errorf("instance-id from AWS metadata service was empty")
+			} else {
+				glog.Infof("Using instance-id from AWS metadata service as Node.Name: %s", v)
+			}
+			return v, nil
+		}
+
+	default:
+		return "", fmt.Errorf("unknown @aws alias: %q", k)
 	}
-	v := strings.TrimSpace(string(vBytes))
-	if v == "" {
-		glog.Warningf("Local hostname from AWS metadata service was empty")
-	} else {
-		glog.Infof("Using hostname from AWS metadata service: %s", v)
-	}
-	return v, nil
 }
 
 // evaluateDockerSpec selects the first supported storage mode, if it is a list

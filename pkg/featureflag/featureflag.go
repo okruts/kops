@@ -28,6 +28,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"github.com/golang/glog"
 )
 
 func Bool(b bool) *bool {
@@ -37,10 +38,15 @@ func Bool(b bool) *bool {
 // DNSPreCreate controls whether we pre-create DNS records.
 var DNSPreCreate = New("DNSPreCreate", Bool(true))
 
+// NameWithInstanceId controls whether we set the node name to be the AWS instance-id
+var NameWithInstanceId = New("NameWithInstanceId", Bool(false))
+
 var flags = make(map[string]*FeatureFlag)
 var flagsMutex sync.Mutex
 
-var initFlags sync.Once
+func init() {
+	ParseFlags(os.Getenv("KOPS_FEATURE_FLAGS"))
+}
 
 type FeatureFlag struct {
 	Key          string
@@ -75,17 +81,12 @@ func ParseFlags(f string) {
 		} else {
 			ff = New(s, nil)
 		}
+		glog.Infof("FeatureFlag %q=%v", ff.Key, enabled)
 		ff.enabled = &enabled
 	}
 }
 
-func readEnv() {
-	ParseFlags(os.Getenv("KOPS_FEATURE_FLAGS"))
-}
-
 func New(key string, defaultValue *bool) *FeatureFlag {
-	initFlags.Do(readEnv)
-
 	flagsMutex.Lock()
 	defer flagsMutex.Unlock()
 

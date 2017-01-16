@@ -20,6 +20,7 @@ import (
 	"k8s.io/kops/pkg/apis/kops"
 	"k8s.io/kops/upup/pkg/fi"
 	"k8s.io/kops/upup/pkg/fi/loader"
+	"k8s.io/kops/pkg/featureflag"
 )
 
 // KubeletOptionsBuilder adds options for kubelets
@@ -73,6 +74,18 @@ func (b *KubeletOptionsBuilder) BuildOptions(o interface{}) error {
 	if fi.BoolValue(b.Context.Cluster.Spec.IsolateMasters) {
 		options.MasterKubelet.EnableDebuggingHandlers = fi.Bool(false)
 		options.MasterKubelet.HairpinMode = "none"
+	}
+
+	if b.Context.Cloud == fi.CloudProviderAWS {
+		if featureflag.NameWithInstanceId.Enabled() {
+			// Use the hostname from the AWS metadata service
+			options.Kubelet.HostnameOverride = "@aws.instance-id"
+			options.MasterKubelet.HostnameOverride = "@aws.instance-id"
+		} else {
+			// Use the hostname from the AWS metadata service
+			options.Kubelet.HostnameOverride = "@aws"
+			options.MasterKubelet.HostnameOverride = "@aws"
+		}
 	}
 
 	return nil

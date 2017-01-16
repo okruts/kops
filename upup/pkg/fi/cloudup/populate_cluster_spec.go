@@ -256,6 +256,7 @@ func (c *populateClusterSpec) run() error {
 
 	optionsContext := &components.OptionsContext{
 		Cluster: cluster,
+		Cloud: cloud.ProviderID(),
 	}
 	var fileModels []string
 	var codeModels []loader.OptionsBuilder

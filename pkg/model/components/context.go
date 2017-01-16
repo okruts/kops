@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"github.com/blang/semver"
 	"k8s.io/kops/pkg/apis/kops"
+	"k8s.io/kops/upup/pkg/fi"
 )
 
 // OptionsContext is the context object for options builders
 type OptionsContext struct {
 	Cluster *kops.Cluster
+	Cloud fi.CloudProviderID
 }
 
 // KubernetesVersion parses the semver version of kubernetes, from the cluster spec
