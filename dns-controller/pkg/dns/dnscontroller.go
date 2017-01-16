@@ -466,43 +466,44 @@ func (o *dnsOp) updateRecords(k recordKey, newRecords []string, ttl int64) error
 		return fmt.Errorf("zone does not support resource records %q", zone.Name())
 	}
 
-	glog.V(2).Infof("Querying all route53 records for zone %q", zone.Name())
-	rrs, err := rrsProvider.List()
+	//glog.V(2).Infof("Querying all dnsprovider records for zone %q", zone.Name())
+	//rrs, err := rrsProvider.List()
+	//glog.V(2).Infof("Querying dnsprovider records for zone %q, name %q, type %q", zone.Name(), fqdn, k.RecordType)
+	//rrs, err := rrsProvider.List(fqdn, rrstype.RrsType(k.RecordType))
+	//if err != nil {
+	//	return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
+	//}
+
+	//var existing dnsprovider.ResourceRecordSet
+	//for _, rr := range rrs {
+	//	rrName := EnsureDotSuffix(rr.Name())
+	//	if rrName != fqdn {
+	//		glog.V(4).Infof("Skipping record %q (name != %s)", rrName, fqdn)
+	//		continue
+	//	}
+	//	if string(rr.Type()) != string(k.RecordType) {
+	//		glog.V(4).Infof("Skipping record %q (type %s != %s)", rrName, rr.Type(), k.RecordType)
+	//		continue
+	//	}
+	//
+	//	if existing != nil {
+	//		glog.Warningf("Found multiple matching records: %v and %v", existing, rr)
+	//	}
+	//	existing = rr
+	//}
+
+	cs, err := o.getChangeset(zone)
 	if err != nil {
-		return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
+		return err
 	}
 
-	var existing dnsprovider.ResourceRecordSet
-	for _, rr := range rrs {
-		rrName := EnsureDotSuffix(rr.Name())
-		if rrName != fqdn {
-			glog.V(8).Infof("Skipping record %q (name != %s)", rrName, fqdn)
-			continue
-		}
-		if string(rr.Type()) != string(k.RecordType) {
-			glog.V(8).Infof("Skipping record %q (type %s != %s)", rrName, rr.Type(), k.RecordType)
-			continue
-		}
-
-		if existing != nil {
-			glog.Warningf("Found multiple matching records: %v and %v", existing, rr)
-		}
-		existing = rr
-	}
-
-	cs := rrsProvider.StartChangeset()
-
-	if existing != nil {
-		cs.Remove(existing)
-	}
+	//if existing != nil {
+	//	cs.Remove(existing)
+	//}
 
 	glog.V(2).Infof("Adding DNS changes to batch %s %s", k, newRecords)
 	rr := rrsProvider.New(fqdn, newRecords, ttl, rrstype.RrsType(k.RecordType))
-	cs.Add(rr)
-
-	if err := cs.Apply(); err != nil {
-		return fmt.Errorf("error updating resource record %s %s: %v", fqdn, rr.Type(), err)
-	}
+	cs.Upsert(rr)
 
 	return nil
 }
