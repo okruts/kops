@@ -278,6 +278,13 @@ func (c *DNSController) runOnce() error {
 		}
 	}
 
+	for key, changeset := range op.changesets {
+		glog.V(2).Infof("applying DNS changeset for zone %s", key)
+		if err := changeset.Apply(); err != nil {
+			errors = append(errors, fmt.Errorf("error applying DNS changeset: %v", err))
+		}
+	}
+
 	if len(errors) != 0 {
 		return errors[0]
 	}
@@ -289,9 +296,13 @@ func (c *DNSController) runOnce() error {
 	return nil
 }
 
+// dnsOp manages a single dns change; we cache results and state for the duration of the operation
 type dnsOp struct {
-	dnsCache *dnsCache
-	zones    map[string]dnsprovider.Zone
+	dnsCache     *dnsCache
+	zones        map[string]dnsprovider.Zone
+	recordsCache map[string][]dnsprovider.ResourceRecordSet
+
+	changesets map[string]dnsprovider.ResourceRecordChangeset
 }
 
 func newDNSOp(zoneRules *ZoneRules, dnsCache *dnsCache) (*dnsOp, error) {
@@ -330,8 +341,10 @@ func newDNSOp(zoneRules *ZoneRules, dnsCache *dnsCache) (*dnsOp, error) {
 	}
 
 	o := &dnsOp{
-		dnsCache: dnsCache,
-		zones:    zoneMap,
+		dnsCache:     dnsCache,
+		zones:        zoneMap,
+		changesets:   make(map[string]dnsprovider.ResourceRecordChangeset),
+		recordsCache: make(map[string][]dnsprovider.ResourceRecordSet),
 	}
 
 	return o, nil
@@ -359,6 +372,44 @@ func (o *dnsOp) findZone(fqdn string) dnsprovider.Zone {
 	}
 }
 
+func (o *dnsOp) getChangeset(zone dnsprovider.Zone) (dnsprovider.ResourceRecordChangeset, error) {
+	key := zone.Name() + "::" + zone.ID()
+	changeset := o.changesets[key]
+	if changeset == nil {
+		rrsProvider, ok := zone.ResourceRecordSets()
+		if !ok {
+			return nil, fmt.Errorf("zone does not support resource records %q", zone.Name())
+		}
+		changeset = rrsProvider.StartChangeset()
+		o.changesets[key] = changeset
+	}
+
+	return changeset, nil
+}
+
+// listRecords is a wrapper around listing records, but will cache the results for the duration of the dnsOp
+func (o *dnsOp) listRecords(zone dnsprovider.Zone) ([]dnsprovider.ResourceRecordSet, error) {
+	key := zone.Name() + "::" + zone.ID()
+
+	rrs := o.recordsCache[key]
+	if rrs == nil {
+		rrsProvider, ok := zone.ResourceRecordSets()
+		if !ok {
+			return nil, fmt.Errorf("zone does not support resource records %q", zone.Name())
+		}
+
+		glog.V(2).Infof("Querying all dnsprovider records for zone %q", zone.Name())
+		rrs, err := rrsProvider.List()
+		if err != nil {
+			return nil, fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
+		}
+
+		o.recordsCache[key] = rrs
+	}
+
+	return rrs, nil
+}
+
 func (o *dnsOp) deleteRecords(k recordKey) error {
 	glog.V(2).Infof("Deleting all records for %s", k)
 
@@ -370,20 +421,19 @@ func (o *dnsOp) deleteRecords(k recordKey) error {
 		return fmt.Errorf("no suitable zone found for %q", fqdn)
 	}
 
-	rrsProvider, ok := zone.ResourceRecordSets()
-	if !ok {
-		return fmt.Errorf("zone does not support resource records %q", zone.Name())
-	}
-
-	glog.V(2).Infof("Querying all route53 records for zone %q", zone.Name())
-	rrs, err := rrsProvider.List()
+	glog.V(2).Infof("Querying all dnsprovider records for zone %q", zone.Name())
+	rrs, err := o.listRecords(zone)
+	//glog.V(2).Infof("Querying dnsprovider records for zone %q, name %q, type %q", zone.Name(), fqdn, k.RecordType)
+	//rrs, err := rrsProvider.List(fqdn, rrstype.RrsType(k.RecordType))
 	if err != nil {
 		return fmt.Errorf("error querying resource records for zone %q: %v", zone.Name(), err)
 	}
 
-	cs := rrsProvider.StartChangeset()
+	cs, err := o.getChangeset(zone)
+	if err != nil {
+		return err
+	}
 
-	empty := true
 	for _, rr := range rrs {
 		rrName := EnsureDotSuffix(rr.Name())
 		if rrName != fqdn {
@@ -397,23 +447,12 @@ func (o *dnsOp) deleteRecords(k recordKey) error {
 
 		glog.V(2).Infof("Deleting resource record %s %s", rrName, rr.Type())
 		cs.Remove(rr)
-		empty = false
-	}
-
-	if empty {
-		return nil
-	}
-
-	if err := cs.Apply(); err != nil {
-		return fmt.Errorf("error deleting DNS resource records: %v", err)
 	}
 
 	return nil
 }
 
 func (o *dnsOp) updateRecords(k recordKey, newRecords []string, ttl int64) error {
-	glog.V(2).Infof("applying changes to DNS provider for %s: %v", k, newRecords)
-
 	fqdn := EnsureDotSuffix(k.FQDN)
 
 	zone := o.findZone(fqdn)
@@ -457,7 +496,7 @@ func (o *dnsOp) updateRecords(k recordKey, newRecords []string, ttl int64) error
 		cs.Remove(existing)
 	}
 
-	glog.V(2).Infof("Updating resource record %s %s", k, newRecords)
+	glog.V(2).Infof("Adding DNS changes to batch %s %s", k, newRecords)
 	rr := rrsProvider.New(fqdn, newRecords, ttl, rrstype.RrsType(k.RecordType))
 	cs.Add(rr)
 
@@ -501,7 +540,7 @@ func (s *DNSControllerScope) Replace(recordName string, records []Record) {
 		s.Records[recordName] = records
 	}
 
-	glog.V(2).Infof("Update %s/%s: %v", s.ScopeName, recordName, records)
+	glog.V(2).Infof("Update desired state: %s/%s: %v", s.ScopeName, recordName, records)
 	s.parent.recordChange()
 }
 
