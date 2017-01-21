@@ -18,11 +18,15 @@ package model
 
 import (
 	"fmt"
+	"github.com/golang/glog"
 	"k8s.io/kops/pkg/apis/kops"
 	"k8s.io/kops/pkg/model/resources"
 	"k8s.io/kops/upup/pkg/fi"
 	"k8s.io/kops/upup/pkg/fi/cloudup/awstasks"
+	"k8s.io/kops/upup/pkg/fi/cloudup/awsup"
 	"k8s.io/kops/upup/pkg/fi/nodeup"
+	"strconv"
+	"strings"
 	"text/template"
 )
 
@@ -84,7 +88,35 @@ func (b *AutoscalingGroupModelBuilder) Build(c *fi.ModelBuilderContext) error {
 			}
 
 			if fi.StringValue(ig.Spec.MaxPrice) != "" {
-				t.SpotPrice = ig.Spec.MaxPrice
+				spotPrice := fi.StringValue(ig.Spec.MaxPrice)
+				spotPrice = strings.TrimSpace(spotPrice)
+
+				// Convert a percentage bid to an absolute bid
+				if strings.HasSuffix(spotPrice, "%") {
+					percent, err := strconv.ParseFloat(strings.TrimSuffix(spotPrice, "%"), 64)
+					if err != nil {
+						return fmt.Errorf("cannot parse MaxPrice value: %q", spotPrice)
+					}
+					percent /= 100.0
+
+					instanceType := ig.Spec.MachineType
+					instanceTypeInfo, err := awsup.GetMachineTypeInfo(instanceType)
+					if err != nil {
+						return fmt.Errorf("error getting instance type %q to compute spot price bid", instanceType, err)
+					}
+					if instanceTypeInfo == nil {
+						return fmt.Errorf("unknown instance type %q, unable to compute spot price bid", instanceType, err)
+					}
+					onDemandPrice, ok := instanceTypeInfo.OnDemandPrice(b.Region)
+					if !ok {
+						return fmt.Errorf("pricing for instance type %q in region %s is not know, unable to compute spot price bid", instanceType, b.Region)
+					}
+					bid := onDemandPrice * percent
+					glog.V(2).Infof("computed bid %.4f based on %q for instancetype=%s region=%s with on-demand price %f", bid, spotPrice, instanceType, b.Region, onDemandPrice)
+					spotPrice = fmt.Sprintf("%.4f", bid)
+				}
+
+				t.SpotPrice = &spotPrice
 			}
 
 			{

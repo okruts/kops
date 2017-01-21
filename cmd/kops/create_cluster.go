@@ -32,6 +32,7 @@ import (
 	"k8s.io/kops/upup/pkg/fi"
 	"k8s.io/kops/upup/pkg/fi/cloudup"
 	"k8s.io/kops/upup/pkg/fi/utils"
+	"os"
 	"sort"
 )
 
@@ -379,6 +380,16 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 
 	for _, group := range instanceGroups {
 		group.Spec.AssociatePublicIP = fi.Bool(c.AssociatePublicIP)
+	}
+
+	{
+		// Unsupported, experimental, likely to go away at any moment support, for quick configuration spot instances
+		maxPrice := os.Getenv("KOPS_EXPERIMENT_MAXPRICE")
+		if maxPrice != "" {
+			for _, ig := range instanceGroups {
+				ig.Spec.MaxPrice = fi.String(maxPrice)
+			}
+		}
 	}
 
 	if c.NodeCount != 0 {

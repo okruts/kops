@@ -307,8 +307,6 @@ func (c *ApplyClusterCmd) Run() error {
 			if len(sshPublicKeys) != 1 {
 				return fmt.Errorf("Exactly one 'admin' SSH public key can be specified when running with AWS; please delete a key using `kops delete secret`")
 			}
-
-			l.TemplateFunctions["MachineTypeInfo"] = awsup.GetMachineTypeInfo
 		}
 
 	default:

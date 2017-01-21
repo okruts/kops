@@ -59,6 +59,25 @@ func (m *AWSMachineTypeInfo) EphemeralDevices() []*EphemeralDevice {
 	return disks
 }
 
+func (m *AWSMachineTypeInfo) OnDemandPrice(region string) (float64, bool) {
+	// If we make this real, we will need to load it dynamically
+	// e.g. https://aws.amazon.com/blogs/aws/new-aws-price-list-api/
+	// e.g. http://www.ec2instances.info/
+
+	key := region + ":" + m.Name
+
+	price := 0.0
+	switch key {
+	case "us-east-1:m3.medium":
+		price = 0.067
+
+	default:
+		return price, false
+	}
+
+	return price, true
+}
+
 func GetMachineTypeInfo(machineType string) (*AWSMachineTypeInfo, error) {
 	for i := range MachineTypes {
 		m := &MachineTypes[i]
@@ -67,7 +86,7 @@ func GetMachineTypeInfo(machineType string) (*AWSMachineTypeInfo, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("instance type not handled: %q", machineType)
+	return nil, nil
 }
 
 var MachineTypes []AWSMachineTypeInfo = []AWSMachineTypeInfo{
