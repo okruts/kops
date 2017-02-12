@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"k8s.io/kubernetes/pkg/client/restclient"
+	"k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
 )
@@ -109,8 +109,8 @@ func DeleteConfig(name string) error {
 }
 
 // Create new Rest Client
-func (c *KubeconfigBuilder) BuildRestConfig() (*restclient.Config, error) {
-	restConfig := &restclient.Config{
+func (c *KubeconfigBuilder) BuildRestConfig() (*rest.Config, error) {
+	restConfig := &rest.Config{
 		Host: "https://" + c.KubeMasterIP,
 	}
 	restConfig.CAData = c.CACert
