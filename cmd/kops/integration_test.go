@@ -50,6 +50,11 @@ func TestMinimal(t *testing.T) {
 	runTest(t, "minimal.example.com", "../../tests/integration/minimal", "v1alpha2", false)
 }
 
+// TestComplex runs the test on a more complex configuration, intended to hit more of the edge cases
+func TestComplex(t *testing.T) {
+	runTest(t, "complex.example.com", "../../tests/integration/complex", "v1alpha2", false)
+}
+
 // TestMinimalCloudformation runs the test on a minimum configuration, similar to kops create cluster minimal.example.com --zones us-west-1a
 func TestMinimalCloudformation(t *testing.T) {
 	//runTestCloudformation(t, "minimal.example.com", "../../tests/integration/minimal", "v1alpha0", false)
